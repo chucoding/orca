@@ -75,6 +75,35 @@ async function guestViewportSize(
   }, guestUrl)
 }
 
+/** Counts every size flash in the renderer, so a flash that fades before an assertion still counts. */
+async function startCountingSizeFlashes(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.body.dataset.sizeBadgeFlashes = '0'
+    new MutationObserver(() => {
+      const shown = document.querySelector(
+        '[data-browser-page-viewport-id] [role="status"][aria-hidden="false"]'
+      )
+      const label = shown?.textContent ?? ''
+      if (label.includes('×') && label !== document.body.dataset.sizeBadgeLastLabel) {
+        document.body.dataset.sizeBadgeFlashes = String(
+          Number(document.body.dataset.sizeBadgeFlashes) + 1
+        )
+      }
+      document.body.dataset.sizeBadgeLastLabel = label
+    }).observe(document.body, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['aria-hidden']
+    })
+  })
+}
+
+async function sizeFlashCount(page: Page): Promise<number> {
+  return page.evaluate(() => Number(document.body.dataset.sizeBadgeFlashes))
+}
+
 function badge(page: Page, browserPageId: string) {
   return page.locator(`[data-browser-page-viewport-id="${browserPageId}"] [role="status"]`).first()
 }
@@ -149,6 +178,7 @@ test.describe('Browser viewport size badge', () => {
     const server = await startPageServer()
     try {
       const worktreeId = (await getActiveWorktreeId(orcaPage))!
+      await startCountingSizeFlashes(orcaPage)
       await orcaPage.evaluate(
         ({ targetWorktreeId, url }) => {
           window.__store?.getState().createBrowserTab(targetWorktreeId, url, {
@@ -168,11 +198,25 @@ test.describe('Browser viewport size badge', () => {
         .poll(() => guestViewportSize(electronApp, server.url), { timeout: 15_000 })
         .not.toBeNull()
 
-      // Opening the tab is not a resize.
+      // Opening the tab and switching away and back are not resizes.
+      await orcaPage.evaluate((id) => {
+        const state = window.__store?.getState()
+        state?.setActiveTabType('terminal', id)
+      }, worktreeId)
+      await expect.poll(async () => getActiveTabType(orcaPage)).toBe('terminal')
+      await orcaPage.evaluate((id) => {
+        const state = window.__store?.getState()
+        state?.setActiveTabType('browser', id)
+      }, worktreeId)
+      await expect.poll(async () => getActiveTabType(orcaPage)).toBe('browser')
+      await orcaPage.waitForTimeout(1_000)
+      expect(await sizeFlashCount(orcaPage)).toBe(0)
       await expect(badge(orcaPage, browserPageId)).toHaveAttribute('aria-hidden', 'true')
 
       await setWindowWidth(electronApp, 1400)
       await resizeAndReadBadge(orcaPage, electronApp, browserPageId, server.url, 1200)
+      // The counter itself sees real flashes, so the zero above is meaningful.
+      expect(await sizeFlashCount(orcaPage)).toBeGreaterThan(0)
 
       await orcaPage.evaluate((id) => {
         window.dispatchEvent(

@@ -83,6 +83,18 @@ describe('useBrowserPageViewportSizeFeedback', () => {
     expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 720, height: 480 })
   })
 
+  it('treats reactivation as a fresh first measurement', () => {
+    const view = renderFeedback(true)
+    resizeTo(800, 600)
+    view.rerender({ active: false })
+    view.rerender({ active: true })
+    // A tab shown again at a new size is not a resize.
+    resizeTo(1000, 600)
+    expect(showBrowserViewportSizeFeedback).not.toHaveBeenCalled()
+    resizeTo(960, 600)
+    expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 960, height: 600 })
+  })
+
   it('does not observe an inactive pane', () => {
     renderFeedback(false)
     expect(observerCallbacks).toHaveLength(0)
