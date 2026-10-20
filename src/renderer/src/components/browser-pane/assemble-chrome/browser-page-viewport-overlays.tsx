@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react'
-import { BrowserPageZoomIndicator } from './browser-page-zoom-indicator'
+import { BrowserPageFeedbackBadge } from './browser-page-feedback-badge'
 import { translate } from '@/i18n/i18n'
 import { toHttpsRecoveryUrl } from '../../../../../shared/browser-url'
 import type {
@@ -23,7 +23,7 @@ import type { useBrowserPageGrabAnnotations } from '../annotate/use-browser-page
 export function BrowserPageViewportOverlays({
   markup,
   browserZoomIndicatorState,
-  browserZoomPercent,
+  browserFeedbackLabel,
   findOpen,
   setFindOpen,
   webviewRef,
@@ -48,7 +48,7 @@ export function BrowserPageViewportOverlays({
 }: {
   markup: MarkupModeController
   browserZoomIndicatorState: { ariaHidden: boolean; opacityClassName: string }
-  browserZoomPercent: number
+  browserFeedbackLabel: string
   findOpen: boolean
   setFindOpen: Dispatch<SetStateAction<boolean>>
   webviewRef: MutableRefObject<Electron.WebviewTag | null>
@@ -86,7 +86,7 @@ export function BrowserPageViewportOverlays({
         worktreeId={worktreeId}
         currentUrl={browserTab.url}
       />
-      <BrowserPageZoomIndicator state={browserZoomIndicatorState} percent={browserZoomPercent} />
+      <BrowserPageFeedbackBadge state={browserZoomIndicatorState} label={browserFeedbackLabel} />
       <BrowserFind isOpen={findOpen} onClose={() => setFindOpen(false)} webviewRef={webviewRef} />
       {showFailureOverlay && browserTab.loadError ? (
         <BrowserLoadFailureOverlay
