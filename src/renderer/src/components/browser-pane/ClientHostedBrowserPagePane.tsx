@@ -1,6 +1,6 @@
 import { useCallback, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { useBrowserAgentCursor } from './agent-cursor/use-browser-agent-cursor'
-import { BrowserPageZoomIndicator } from './assemble-chrome/browser-page-zoom-indicator'
+import { BrowserPageFeedbackBadge } from './assemble-chrome/browser-page-feedback-badge'
 import { BrowserLinkStatusBubble } from './assemble-chrome/browser-link-status-bubble'
 import { useAppStore } from '@/store'
 import type { BrowserLoadError } from '../../../../shared/browser-workspace-types'
@@ -357,9 +357,9 @@ export function ClientHostedBrowserPagePane({
           style={devToolsPageFlex === null ? undefined : { flex: devToolsPageFlex }}
         >
           {markup.overlay}
-          <BrowserPageZoomIndicator
+          <BrowserPageFeedbackBadge
             state={browserZoomIndicatorState}
-            percent={zoom.browserZoomPercent}
+            label={zoom.browserFeedbackLabel}
           />
           <BrowserFind
             isOpen={findOpen}
