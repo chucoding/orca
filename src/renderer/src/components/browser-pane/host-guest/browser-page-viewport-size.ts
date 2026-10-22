@@ -8,10 +8,16 @@ export function toBrowserPageGuestViewportSize(
   pageZoomLevel: number
 ): BrowserPageViewportSize {
   const zoomFactor = browserPageZoomLevelToFactor(pageZoomLevel)
-  return {
-    width: Math.round(hostBoxWindowDip.width / zoomFactor),
-    height: Math.round(hostBoxWindowDip.height / zoomFactor)
+  // Why: mirrors Blink's AdjustForAbsoluteZoom::AdjustInt on the guest's integer DIP size, which
+  // adds 1 before truncating when zoomed in; the epsilon absorbs float error like 1199.9999.
+  const toGuestPx = (dip: number): number => {
+    const wholeDip = Math.round(dip)
+    if (zoomFactor === 1) {
+      return wholeDip
+    }
+    return Math.floor((zoomFactor > 1 ? wholeDip + 1 : wholeDip) / zoomFactor + 1e-6)
   }
+  return { width: toGuestPx(hostBoxWindowDip.width), height: toGuestPx(hostBoxWindowDip.height) }
 }
 
 /** Whether a measured size change is a real resize worth announcing. */

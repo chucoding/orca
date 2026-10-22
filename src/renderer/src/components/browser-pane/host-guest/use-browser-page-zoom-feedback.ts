@@ -7,13 +7,11 @@ import {
 } from './browser-page-viewport-size'
 
 export function useBrowserPageZoomFeedback(): {
-  browserZoomPercent: number
   browserZoomFeedbackVisible: boolean
   browserFeedbackLabel: string
   showBrowserZoomFeedback: (level: number) => void
   showBrowserViewportSizeFeedback: (size: BrowserPageViewportSize) => void
 } {
-  const [browserZoomPercent, setBrowserZoomPercent] = useState(100)
   const [browserZoomFeedbackVisible, setBrowserZoomFeedbackVisible] = useState(false)
   // Why one label: zoom and resize share the corner badge, so the latest change wins instead of stacking.
   const [browserFeedbackLabel, setBrowserFeedbackLabel] = useState('')
@@ -33,9 +31,7 @@ export function useBrowserPageZoomFeedback(): {
   }, [])
   const showBrowserZoomFeedback = useCallback(
     (level: number): void => {
-      const percent = browserPageZoomLevelToPercent(level)
-      setBrowserZoomPercent(percent)
-      flashBrowserFeedback(`${percent}%`)
+      flashBrowserFeedback(`${browserPageZoomLevelToPercent(level)}%`)
     },
     [flashBrowserFeedback]
   )
@@ -47,7 +43,6 @@ export function useBrowserPageZoomFeedback(): {
   )
 
   return {
-    browserZoomPercent,
     browserZoomFeedbackVisible,
     browserFeedbackLabel,
     showBrowserZoomFeedback,
