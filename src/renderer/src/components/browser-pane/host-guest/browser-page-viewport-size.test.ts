@@ -26,6 +26,17 @@ describe('toBrowserPageGuestViewportSize', () => {
   })
 })
 
+it('matches what the guest reported in the e2e under UI zoom and page zoom-out', () => {
+  // 410.83 CSS px at 1.2 UI zoom is 493 DIP; Blink adds 1 before dividing when zoomed in.
+  expect(
+    toBrowserPageGuestViewportSize({ width: 410.8333 * 1.2, height: 555.677 * 1.2 }, 1)
+  ).toEqual({ width: 411, height: 556 })
+  // 90% zoom divides without the extra 1.
+  expect(
+    toBrowserPageGuestViewportSize({ width: 669, height: 689 }, Math.log(0.9) / Math.log(1.2))
+  ).toEqual({ width: 743, height: 765 })
+})
+
 describe('shouldShowBrowserPageViewportSizeFeedback', () => {
   it('stays hidden for the first measurement', () => {
     expect(shouldShowBrowserPageViewportSizeFeedback(null, { width: 800, height: 600 })).toBe(false)
