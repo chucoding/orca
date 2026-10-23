@@ -152,12 +152,7 @@ export function BrowserPagePane({
   const slotViewport = useBrowserPageSlotViewport(workspaceId)
 
   const zoom = useBrowserPageZoomFeedback()
-  useBrowserPageViewportSizeFeedback(
-    pageViewport?.content ?? null,
-    isActive,
-    webviewRef,
-    zoom.showBrowserViewportSizeFeedback
-  )
+  useBrowserPageViewportSizeFeedback(pageViewport?.content ?? null, isActive, webviewRef, zoom)
   const { resourceNotice, setResourceNotice } = useBrowserPageResourceNotices(browserTab.id)
   const guestFocus = useWebviewGuestFocus(webviewRef)
   const {

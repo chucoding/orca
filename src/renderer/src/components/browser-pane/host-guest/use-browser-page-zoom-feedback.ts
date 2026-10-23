@@ -11,6 +11,7 @@ export function useBrowserPageZoomFeedback(): {
   browserFeedbackLabel: string
   showBrowserZoomFeedback: (level: number) => void
   showBrowserViewportSizeFeedback: (size: BrowserPageViewportSize) => void
+  hideBrowserFeedback: () => void
 } {
   const [browserZoomFeedbackVisible, setBrowserZoomFeedbackVisible] = useState(false)
   // Why one label: zoom and resize share the corner badge, so the latest change wins instead of stacking.
@@ -29,6 +30,10 @@ export function useBrowserPageZoomFeedback(): {
       setBrowserZoomFeedbackVisible(false)
     }, BROWSER_PAGE_ZOOM_FEEDBACK_MS)
   }, [])
+  const hideBrowserFeedback = useCallback((): void => {
+    clearTimeout(browserZoomFeedbackTimerRef.current)
+    setBrowserZoomFeedbackVisible(false)
+  }, [])
   const showBrowserZoomFeedback = useCallback(
     (level: number): void => {
       flashBrowserFeedback(`${browserPageZoomLevelToPercent(level)}%`)
@@ -46,6 +51,7 @@ export function useBrowserPageZoomFeedback(): {
     browserZoomFeedbackVisible,
     browserFeedbackLabel,
     showBrowserZoomFeedback,
-    showBrowserViewportSizeFeedback
+    showBrowserViewportSizeFeedback,
+    hideBrowserFeedback
   }
 }
