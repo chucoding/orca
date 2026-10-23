@@ -38,7 +38,8 @@ export function useBrowserPageViewportSizeFeedback(
       return
     }
     // Why reset per activation: ResizeObserver's first callback is the current size, not a resize.
-    let previous: BrowserPageViewportSize | null = null
+    // Why host DIP: the baseline must survive measurements taken before the guest zoom is readable.
+    let previousHostDip: BrowserPageViewportSize | null = null
     const observer = new ResizeObserver((entries) => {
       const box = entries.at(-1)?.contentRect
       if (!box) {
@@ -47,22 +48,24 @@ export function useBrowserPageViewportSizeFeedback(
       // Why: a parked page (workspace switch) measures 0×0 while still active; a running flash
       // would come back with a stale size, and the next size is only a baseline.
       if (box.width === 0 || box.height === 0) {
-        previous = null
+        previousHostDip = null
         hideBrowserFeedback()
         return
       }
+      const hostDip = { width: cssPxToWindowDip(box.width), height: cssPxToWindowDip(box.height) }
       const guestZoomLevel = readGuestZoomLevel(webviewRef.current)
-      // Why skip: a size computed at a guessed zoom is worse than no size.
+      // Why skip the flash but keep the baseline: a size computed at a guessed zoom is worse than
+      // no size, yet the first resize after dom-ready must still be announced.
       if (guestZoomLevel === null) {
+        previousHostDip = hostDip
         return
       }
-      const next = toBrowserPageGuestViewportSize(
-        { width: cssPxToWindowDip(box.width), height: cssPxToWindowDip(box.height) },
-        guestZoomLevel
-      )
-      const show = shouldShowBrowserPageViewportSizeFeedback(previous, next)
-      previous = next
-      if (show) {
+      const previous = previousHostDip
+        ? toBrowserPageGuestViewportSize(previousHostDip, guestZoomLevel)
+        : null
+      const next = toBrowserPageGuestViewportSize(hostDip, guestZoomLevel)
+      previousHostDip = hostDip
+      if (shouldShowBrowserPageViewportSizeFeedback(previous, next)) {
         showBrowserViewportSizeFeedback(next)
       }
     })
