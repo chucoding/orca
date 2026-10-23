@@ -25,6 +25,7 @@ function resizeTo(width: number, height: number): void {
 
 describe('useBrowserPageViewportSizeFeedback', () => {
   const showBrowserViewportSizeFeedback = vi.fn()
+  const hideBrowserFeedback = vi.fn()
   beforeEach(() => {
     observerCallbacks = []
     uiZoomFactor = 1
@@ -34,25 +35,22 @@ describe('useBrowserPageViewportSizeFeedback', () => {
   afterEach(() => {
     cleanup()
     showBrowserViewportSizeFeedback.mockReset()
+    hideBrowserFeedback.mockReset()
     vi.unstubAllGlobals()
   })
 
-  function renderFeedback(isActive: boolean, getGuestZoomLevel?: () => number) {
+  function renderFeedback(isActive: boolean, getGuestZoomLevel: () => number = () => 0) {
     const content = document.createElement('div')
     const webviewRef = {
-      current: getGuestZoomLevel
-        ? // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the hook only calls getZoomLevel on the guest.
-          ({ getZoomLevel: getGuestZoomLevel } as unknown as Electron.WebviewTag)
-        : null
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the hook only calls getZoomLevel on the guest.
+      current: { getZoomLevel: getGuestZoomLevel } as unknown as Electron.WebviewTag
     }
     return renderHook(
       ({ active }) =>
-        useBrowserPageViewportSizeFeedback(
-          content,
-          active,
-          webviewRef,
-          showBrowserViewportSizeFeedback
-        ),
+        useBrowserPageViewportSizeFeedback(content, active, webviewRef, {
+          showBrowserViewportSizeFeedback,
+          hideBrowserFeedback
+        }),
       { initialProps: { active: isActive } }
     )
   }
@@ -74,13 +72,41 @@ describe('useBrowserPageViewportSizeFeedback', () => {
     expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 600, height: 400 })
   })
 
-  it('assumes default zoom before the guest is ready', () => {
+  it('skips measurements until the guest zoom is readable', () => {
+    let ready = false
     renderFeedback(true, () => {
-      throw new Error('not attached')
+      if (!ready) {
+        throw new Error('not dom-ready')
+      }
+      return 0
     })
     resizeTo(600, 480)
     resizeTo(720, 480)
-    expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 720, height: 480 })
+    expect(showBrowserViewportSizeFeedback).not.toHaveBeenCalled()
+    ready = true
+    // The first readable measurement is the baseline, not a resize.
+    resizeTo(700, 480)
+    expect(showBrowserViewportSizeFeedback).not.toHaveBeenCalled()
+    resizeTo(680, 480)
+    expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 680, height: 480 })
+  })
+
+  it('hides a running flash when the page is parked at 0×0', () => {
+    renderFeedback(true)
+    resizeTo(800, 600)
+    resizeTo(760, 600)
+    resizeTo(0, 0)
+    expect(hideBrowserFeedback).toHaveBeenCalledTimes(1)
+    // Shown again at a new size: a baseline, not a resize.
+    resizeTo(900, 600)
+    expect(showBrowserViewportSizeFeedback).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides a running flash when the pane becomes inactive', () => {
+    const view = renderFeedback(true)
+    expect(hideBrowserFeedback).not.toHaveBeenCalled()
+    view.rerender({ active: false })
+    expect(hideBrowserFeedback).toHaveBeenCalledTimes(1)
   })
 
   it('treats reactivation as a fresh first measurement', () => {

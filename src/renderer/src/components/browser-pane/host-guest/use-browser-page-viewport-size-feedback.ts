@@ -1,19 +1,22 @@
 import { useEffect } from 'react'
 import { cssPxToWindowDip } from '@/lib/ui-zoom'
-import { DEFAULT_BROWSER_PAGE_ZOOM_LEVEL } from '../../../../../shared/browser-page-zoom'
 import {
   shouldShowBrowserPageViewportSizeFeedback,
   toBrowserPageGuestViewportSize,
   type BrowserPageViewportSize
 } from './browser-page-viewport-size'
 
-function readGuestZoomLevel(webview: Electron.WebviewTag | null): number {
+/** The guest's live zoom level, or null until it can be read. */
+function readGuestZoomLevel(webview: Electron.WebviewTag | null): number | null {
+  if (!webview) {
+    return null
+  }
   try {
     // Why the live level: an embedder (UI) zoom change overwrites the guest's zoom behind Orca's back.
-    return webview ? webview.getZoomLevel() : DEFAULT_BROWSER_PAGE_ZOOM_LEVEL
+    return webview.getZoomLevel()
   } catch {
-    // getZoomLevel throws until the guest is attached and dom-ready.
-    return DEFAULT_BROWSER_PAGE_ZOOM_LEVEL
+    // getZoomLevel throws until dom-ready, which is also when a saved site zoom lands.
+    return null
   }
 }
 
@@ -22,7 +25,13 @@ export function useBrowserPageViewportSizeFeedback(
   content: HTMLDivElement | null,
   isActive: boolean,
   webviewRef: React.RefObject<Electron.WebviewTag | null>,
-  showBrowserViewportSizeFeedback: (size: BrowserPageViewportSize) => void
+  {
+    showBrowserViewportSizeFeedback,
+    hideBrowserFeedback
+  }: {
+    showBrowserViewportSizeFeedback: (size: BrowserPageViewportSize) => void
+    hideBrowserFeedback: () => void
+  }
 ): void {
   useEffect(() => {
     if (!content || !isActive || typeof ResizeObserver === 'undefined') {
@@ -35,9 +44,21 @@ export function useBrowserPageViewportSizeFeedback(
       if (!box) {
         return
       }
+      // Why: a parked page (workspace switch) measures 0×0 while still active; a running flash
+      // would come back with a stale size, and the next size is only a baseline.
+      if (box.width === 0 || box.height === 0) {
+        previous = null
+        hideBrowserFeedback()
+        return
+      }
+      const guestZoomLevel = readGuestZoomLevel(webviewRef.current)
+      // Why skip: a size computed at a guessed zoom is worse than no size.
+      if (guestZoomLevel === null) {
+        return
+      }
       const next = toBrowserPageGuestViewportSize(
         { width: cssPxToWindowDip(box.width), height: cssPxToWindowDip(box.height) },
-        readGuestZoomLevel(webviewRef.current)
+        guestZoomLevel
       )
       const show = shouldShowBrowserPageViewportSizeFeedback(previous, next)
       previous = next
@@ -46,6 +67,10 @@ export function useBrowserPageViewportSizeFeedback(
       }
     })
     observer.observe(content)
-    return () => observer.disconnect()
-  }, [content, isActive, webviewRef, showBrowserViewportSizeFeedback])
+    return () => {
+      observer.disconnect()
+      // Why: an inactive page is no longer measured, so a running flash would go stale.
+      hideBrowserFeedback()
+    }
+  }, [content, isActive, webviewRef, showBrowserViewportSizeFeedback, hideBrowserFeedback])
 }
