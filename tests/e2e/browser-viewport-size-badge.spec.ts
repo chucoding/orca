@@ -213,7 +213,12 @@ test.describe('Browser viewport size badge', () => {
       expect(await sizeFlashCount(orcaPage)).toBe(0)
       await expect(badge(orcaPage, browserPageId)).toHaveAttribute('aria-hidden', 'true')
 
+      // The first resize after opening the tab is announced too, even if the tab's opening
+      // measurement arrived before the guest zoom was readable.
       await setWindowWidth(electronApp, 1400)
+      await expect(badge(orcaPage, browserPageId)).toHaveAttribute('aria-hidden', 'false', {
+        timeout: 5_000
+      })
       await resizeAndReadBadge(orcaPage, electronApp, browserPageId, server.url, 1200)
       // The counter itself sees real flashes, so the zero above is meaningful.
       expect(await sizeFlashCount(orcaPage)).toBeGreaterThan(0)

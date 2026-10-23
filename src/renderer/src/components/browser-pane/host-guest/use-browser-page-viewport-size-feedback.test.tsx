@@ -72,7 +72,7 @@ describe('useBrowserPageViewportSizeFeedback', () => {
     expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 600, height: 400 })
   })
 
-  it('skips measurements until the guest zoom is readable', () => {
+  it('does not flash before the guest zoom is readable, but keeps the baseline', () => {
     let ready = false
     renderFeedback(true, () => {
       if (!ready) {
@@ -84,11 +84,24 @@ describe('useBrowserPageViewportSizeFeedback', () => {
     resizeTo(720, 480)
     expect(showBrowserViewportSizeFeedback).not.toHaveBeenCalled()
     ready = true
-    // The first readable measurement is the baseline, not a resize.
+    // The first resize after dom-ready is compared with the size seen before it.
     resizeTo(700, 480)
-    expect(showBrowserViewportSizeFeedback).not.toHaveBeenCalled()
-    resizeTo(680, 480)
-    expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 680, height: 480 })
+    expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 700, height: 480 })
+  })
+
+  it('announces the first resize when the opening measurement came before dom-ready', () => {
+    let ready = false
+    renderFeedback(true, () => {
+      if (!ready) {
+        throw new Error('not dom-ready')
+      }
+      return 1
+    })
+    resizeTo(1200, 600)
+    ready = true
+    resizeTo(1080, 600)
+    // Both sides convert at the zoom readable now (level 1 is 1.2), so the badge shows 900 × 500.
+    expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 900, height: 500 })
   })
 
   it('hides a running flash when the page is parked at 0×0', () => {
