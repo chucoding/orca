@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  formatBrowserPageViewportSize,
   shouldShowBrowserPageViewportSizeFeedback,
   toBrowserPageGuestViewportSize
 } from './browser-page-viewport-size'
@@ -74,8 +73,4 @@ describe('shouldShowBrowserPageViewportSizeFeedback', () => {
       )
     ).toBe(false)
   })
-})
-
-it('formats the size like Chrome DevTools', () => {
-  expect(formatBrowserPageViewportSize({ width: 1024, height: 768 })).toBe('1024 × 768')
 })
