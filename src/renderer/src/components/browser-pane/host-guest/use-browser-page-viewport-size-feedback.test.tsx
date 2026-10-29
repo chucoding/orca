@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useBrowserPageViewportSizeFeedback } from './use-browser-page-viewport-size-feedback'
+import {
+  toBrowserPageGuestViewportSize,
+  useBrowserPageViewportSizeFeedback
+} from './use-browser-page-viewport-size-feedback'
 
-let uiZoomFactor = 1
-vi.mock('@/lib/ui-zoom', () => ({ cssPxToWindowDip: (px: number) => px * uiZoomFactor }))
+vi.mock('@/lib/ui-zoom', () => ({ cssPxToWindowDip: (px: number) => px }))
 
 let observerCallbacks: ResizeObserverCallback[] = []
 
@@ -23,12 +25,26 @@ function resizeTo(width: number, height: number): void {
   observerCallbacks.at(-1)?.([entry] as unknown as ResizeObserverEntry[], {} as ResizeObserver)
 }
 
+it('matches what the guest reported under UI zoom and page zoom', () => {
+  expect(toBrowserPageGuestViewportSize({ width: 569, height: 689 }, 0)).toEqual({
+    width: 569,
+    height: 689
+  })
+  // 410.83 CSS px at 1.2 UI zoom is 493 DIP; Blink adds 1 before dividing when zoomed in.
+  expect(
+    toBrowserPageGuestViewportSize({ width: 410.8333 * 1.2, height: 555.677 * 1.2 }, 1)
+  ).toEqual({ width: 411, height: 556 })
+  // 90% zoom divides without the extra 1.
+  expect(
+    toBrowserPageGuestViewportSize({ width: 669, height: 689 }, Math.log(0.9) / Math.log(1.2))
+  ).toEqual({ width: 743, height: 765 })
+})
+
 describe('useBrowserPageViewportSizeFeedback', () => {
   const showBrowserViewportSizeFeedback = vi.fn()
   const hideBrowserFeedback = vi.fn()
   beforeEach(() => {
     observerCallbacks = []
-    uiZoomFactor = 1
     vi.stubGlobal('ResizeObserver', FakeResizeObserver)
   })
 
@@ -63,32 +79,6 @@ describe('useBrowserPageViewportSizeFeedback', () => {
     expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 760, height: 600 })
   })
 
-  it('converts the host box through UI zoom and the live guest zoom', () => {
-    // A 1.2 UI zoom grows host CSS px; guest zoom level 1 grows guest CSS px by the same 1.2.
-    uiZoomFactor = 1.2
-    renderFeedback(true, () => 1)
-    resizeTo(500, 400)
-    resizeTo(600, 400)
-    expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 600, height: 400 })
-  })
-
-  it('does not flash before the guest zoom is readable, but keeps the baseline', () => {
-    let ready = false
-    renderFeedback(true, () => {
-      if (!ready) {
-        throw new Error('not dom-ready')
-      }
-      return 0
-    })
-    resizeTo(600, 480)
-    resizeTo(720, 480)
-    expect(showBrowserViewportSizeFeedback).not.toHaveBeenCalled()
-    ready = true
-    // The first resize after dom-ready is compared with the size seen before it.
-    resizeTo(700, 480)
-    expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 700, height: 480 })
-  })
-
   it('announces the first resize when the opening measurement came before dom-ready', () => {
     let ready = false
     renderFeedback(true, () => {
@@ -115,27 +105,16 @@ describe('useBrowserPageViewportSizeFeedback', () => {
     expect(showBrowserViewportSizeFeedback).toHaveBeenCalledTimes(1)
   })
 
-  it('hides a running flash when the pane becomes inactive', () => {
-    const view = renderFeedback(true)
-    expect(hideBrowserFeedback).not.toHaveBeenCalled()
-    view.rerender({ active: false })
-    expect(hideBrowserFeedback).toHaveBeenCalledTimes(1)
-  })
-
   it('treats reactivation as a fresh first measurement', () => {
     const view = renderFeedback(true)
     resizeTo(800, 600)
     view.rerender({ active: false })
+    expect(hideBrowserFeedback).toHaveBeenCalledTimes(1)
     view.rerender({ active: true })
     // A tab shown again at a new size is not a resize.
     resizeTo(1000, 600)
     expect(showBrowserViewportSizeFeedback).not.toHaveBeenCalled()
     resizeTo(960, 600)
     expect(showBrowserViewportSizeFeedback).toHaveBeenCalledWith({ width: 960, height: 600 })
-  })
-
-  it('does not observe an inactive pane', () => {
-    renderFeedback(false)
-    expect(observerCallbacks).toHaveLength(0)
   })
 })

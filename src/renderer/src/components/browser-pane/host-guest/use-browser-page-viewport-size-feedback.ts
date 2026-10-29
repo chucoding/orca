@@ -1,19 +1,32 @@
 import { useEffect } from 'react'
 import { cssPxToWindowDip } from '@/lib/ui-zoom'
-import {
-  shouldShowBrowserPageViewportSizeFeedback,
-  toBrowserPageGuestViewportSize,
-  type BrowserPageViewportSize
-} from './browser-page-viewport-size'
+import { browserPageZoomLevelToFactor } from '../../../../../shared/browser-page-zoom'
+
+export type BrowserPageViewportSize = { width: number; height: number }
+
+/** Guest `innerWidth`/`innerHeight` for a host box measured in window DIP. */
+export function toBrowserPageGuestViewportSize(
+  hostBoxWindowDip: BrowserPageViewportSize,
+  pageZoomLevel: number
+): BrowserPageViewportSize {
+  const zoomFactor = browserPageZoomLevelToFactor(pageZoomLevel)
+  // Why: mirrors Blink's AdjustForAbsoluteZoom::AdjustInt on the guest's integer DIP size, which
+  // adds 1 before truncating when zoomed in; the epsilon absorbs float error like 1199.9999.
+  const toGuestPx = (dip: number): number => {
+    const wholeDip = Math.round(dip)
+    if (zoomFactor === 1) {
+      return wholeDip
+    }
+    return Math.floor((zoomFactor > 1 ? wholeDip + 1 : wholeDip) / zoomFactor + 1e-6)
+  }
+  return { width: toGuestPx(hostBoxWindowDip.width), height: toGuestPx(hostBoxWindowDip.height) }
+}
 
 /** The guest's live zoom level, or null until it can be read. */
 function readGuestZoomLevel(webview: Electron.WebviewTag | null): number | null {
-  if (!webview) {
-    return null
-  }
   try {
     // Why the live level: an embedder (UI) zoom change overwrites the guest's zoom behind Orca's back.
-    return webview.getZoomLevel()
+    return webview?.getZoomLevel() ?? null
   } catch {
     // getZoomLevel throws until dom-ready, which is also when a saved site zoom lands.
     return null
@@ -53,19 +66,17 @@ export function useBrowserPageViewportSizeFeedback(
         return
       }
       const hostDip = { width: cssPxToWindowDip(box.width), height: cssPxToWindowDip(box.height) }
-      const guestZoomLevel = readGuestZoomLevel(webviewRef.current)
+      const previous = previousHostDip
+      previousHostDip = hostDip
       // Why skip the flash but keep the baseline: a size computed at a guessed zoom is worse than
       // no size, yet the first resize after dom-ready must still be announced.
-      if (guestZoomLevel === null) {
-        previousHostDip = hostDip
+      const guestZoomLevel = readGuestZoomLevel(webviewRef.current)
+      if (!previous || guestZoomLevel === null) {
         return
       }
-      const previous = previousHostDip
-        ? toBrowserPageGuestViewportSize(previousHostDip, guestZoomLevel)
-        : null
+      const before = toBrowserPageGuestViewportSize(previous, guestZoomLevel)
       const next = toBrowserPageGuestViewportSize(hostDip, guestZoomLevel)
-      previousHostDip = hostDip
-      if (shouldShowBrowserPageViewportSizeFeedback(previous, next)) {
+      if (before.width !== next.width || before.height !== next.height) {
         showBrowserViewportSizeFeedback(next)
       }
     })

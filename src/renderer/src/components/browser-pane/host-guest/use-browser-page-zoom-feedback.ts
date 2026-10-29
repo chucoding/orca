@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { browserPageZoomLevelToPercent } from '../../../../../shared/browser-page-zoom'
 import { BROWSER_PAGE_ZOOM_FEEDBACK_MS } from '../describe-page/browser-annotation-geometry'
-import {
-  formatBrowserPageViewportSize,
-  type BrowserPageViewportSize
-} from './browser-page-viewport-size'
+import type { BrowserPageViewportSize } from './use-browser-page-viewport-size-feedback'
 
 export function useBrowserPageZoomFeedback(): {
   browserZoomFeedbackVisible: boolean
@@ -42,7 +39,7 @@ export function useBrowserPageZoomFeedback(): {
   )
   const showBrowserViewportSizeFeedback = useCallback(
     (size: BrowserPageViewportSize): void => {
-      flashBrowserFeedback(formatBrowserPageViewportSize(size))
+      flashBrowserFeedback(`${size.width} × ${size.height}`)
     },
     [flashBrowserFeedback]
   )
