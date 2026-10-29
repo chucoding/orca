@@ -12,8 +12,9 @@ export function toBrowserPageGuestViewportSize(
 ): BrowserPageViewportSize {
   const zoomFactor = Math.fround(screenScale * pageZoomFactor)
   const toGuestPx = (dip: number): number => {
-    // Why: Chromium sizes the guest frame in whole DIPs, then scales it to device pixels.
-    const devicePx = Math.round(Math.round(dip) * screenScale)
+    // Why: Chromium sizes the guest frame in whole DIPs, rounding up, then scales it to device
+    // pixels; the epsilon absorbs float error like 1200.0000001.
+    const devicePx = Math.round(Math.ceil(dip - 1e-3) * screenScale)
     // Why: ports Blink's AdjustForAbsoluteZoom::AdjustInt (float math, +0.5 when zoomed in, then
     // RoundForImpreciseConversion), whose zoom includes the screen scale.
     const value = Math.fround(zoomFactor > 1 ? devicePx + 0.5 : devicePx)

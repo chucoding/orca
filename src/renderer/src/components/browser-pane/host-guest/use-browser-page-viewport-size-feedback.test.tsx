@@ -37,8 +37,10 @@ it('matches what the guest reported under UI zoom, page zoom and a 2x screen', (
     [{ width: 1569, height: 1189 }, 2, 1.25, { width: 1255, height: 951 }],
     // Blink adds 0.5, not 1, before dividing when zoomed in.
     [{ width: 1000, height: 1610 }, 1, 1.1, { width: 909, height: 1464 }],
-    // The guest frame is sized in whole DIPs before the screen scale.
-    [{ width: 800.5, height: 600 }, 2, 0.5, { width: 1602, height: 1200 }]
+    // The guest frame is rounded up to whole DIPs before the screen scale.
+    [{ width: 800.5, height: 600 }, 2, 0.5, { width: 1602, height: 1200 }],
+    // 2x screen at 1.2 UI zoom: a 731.9987 × 890.6771 CSS px box at 90%.
+    [{ width: 731.9987 * 1.2, height: 890.6771 * 1.2 }, 2, 0.9, { width: 976, height: 1188 }]
   ]
   for (const [hostDip, screenScale, pageZoomFactor, guest] of cases) {
     expect(toBrowserPageGuestViewportSize(hostDip, screenScale, pageZoomFactor)).toEqual(guest)
