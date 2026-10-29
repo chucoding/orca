@@ -6,18 +6,13 @@ const isMac = navigator.userAgent.includes('Mac')
 const UI_ZOOM_FACTOR_CSS_VAR = '--ui-zoom-factor'
 
 /** Scale applied to this renderer's CSS pixels, or the persisted level in the web client. */
-function getUIZoomFactor(): number {
+export function getUIZoomFactor(): number {
   return uiZoomFactorFromLevel(window.api?.ui?.getZoomLevel?.() ?? 0)
 }
 
 /** Convert window DIP to CSS pixels for exact native-sized boxes, such as emulated guest viewports. */
 export function windowDipToCssPx(dip: number): number {
   return dip / getUIZoomFactor()
-}
-
-/** Renderer CSS px -> window DIP. Inverse of `windowDipToCssPx`. */
-export function cssPxToWindowDip(px: number): number {
-  return px * getUIZoomFactor()
 }
 
 function publishZoomFactor(zoomFactor: number): void {

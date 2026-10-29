@@ -6,7 +6,7 @@ import {
   useBrowserPageViewportSizeFeedback
 } from './use-browser-page-viewport-size-feedback'
 
-vi.mock('@/lib/ui-zoom', () => ({ cssPxToWindowDip: (px: number) => px }))
+vi.mock('@/lib/ui-zoom', () => ({ getUIZoomFactor: () => 1 }))
 
 let observerCallbacks: ResizeObserverCallback[] = []
 
@@ -25,19 +25,29 @@ function resizeTo(width: number, height: number): void {
   observerCallbacks.at(-1)?.([entry] as unknown as ResizeObserverEntry[], {} as ResizeObserver)
 }
 
-it('matches what the guest reported under UI zoom and page zoom', () => {
-  expect(toBrowserPageGuestViewportSize({ width: 569, height: 689 }, 0)).toEqual({
+it('matches what the guest reported under UI zoom, page zoom and a 2x screen', () => {
+  expect(toBrowserPageGuestViewportSize({ width: 569, height: 689 }, 1)).toEqual({
     width: 569,
     height: 689
   })
-  // 410.83 CSS px at 1.2 UI zoom is 493 DIP; Blink adds 1 before dividing when zoomed in.
+  // 1x screen, 1.2 UI zoom: 410.83 CSS px is 493 device px; Blink adds 1 before dividing when zoomed in.
   expect(
-    toBrowserPageGuestViewportSize({ width: 410.8333 * 1.2, height: 555.677 * 1.2 }, 1)
+    toBrowserPageGuestViewportSize({ width: 410.8333 * 1.2, height: 555.677 * 1.2 }, 1.2)
   ).toEqual({ width: 411, height: 556 })
-  // 90% zoom divides without the extra 1.
-  expect(
-    toBrowserPageGuestViewportSize({ width: 669, height: 689 }, Math.log(0.9) / Math.log(1.2))
-  ).toEqual({ width: 743, height: 765 })
+  // 1x screen at 90% divides without the extra 1.
+  expect(toBrowserPageGuestViewportSize({ width: 669, height: 689 }, 0.9)).toEqual({
+    width: 743,
+    height: 765
+  })
+  // 2x screen: the screen scale joins the page zoom, so 90% divides by 1.8 and 125% by 2.5.
+  expect(toBrowserPageGuestViewportSize({ width: 1744, height: 1791 }, 1.8)).toEqual({
+    width: 969,
+    height: 995
+  })
+  expect(toBrowserPageGuestViewportSize({ width: 3138, height: 2378 }, 2.5)).toEqual({
+    width: 1255,
+    height: 951
+  })
 })
 
 describe('useBrowserPageViewportSizeFeedback', () => {
