@@ -4,19 +4,22 @@ import { browserPageZoomLevelToFactor } from '../../../../../shared/browser-page
 
 export type BrowserPageViewportSize = { width: number; height: number }
 
-/** Guest `innerWidth`/`innerHeight` for a host box in device pixels at the guest's total zoom. */
+/** Guest `innerWidth`/`innerHeight` for a host box measured in window DIP. */
 export function toBrowserPageGuestViewportSize(
-  hostBoxDevicePx: BrowserPageViewportSize,
-  zoomFactor: number
+  hostBoxWindowDip: BrowserPageViewportSize,
+  screenScale: number,
+  pageZoomFactor: number
 ): BrowserPageViewportSize {
-  // Why: ports Blink's AdjustForAbsoluteZoom::AdjustInt (float math, +0.5 when zoomed in, then
-  // RoundForImpreciseConversion) on the guest's device-pixel size, with the screen scale in the zoom.
-  const toGuestPx = (devicePx: number): number => {
-    const wholePx = Math.round(devicePx)
-    const value = Math.fround(zoomFactor > 1 ? wholePx + 0.5 : wholePx)
-    return Math.trunc(Math.fround(value / Math.fround(zoomFactor)) + 0.01)
+  const zoomFactor = Math.fround(screenScale * pageZoomFactor)
+  const toGuestPx = (dip: number): number => {
+    // Why: Chromium sizes the guest frame in whole DIPs, then scales it to device pixels.
+    const devicePx = Math.round(Math.round(dip) * screenScale)
+    // Why: ports Blink's AdjustForAbsoluteZoom::AdjustInt (float math, +0.5 when zoomed in, then
+    // RoundForImpreciseConversion), whose zoom includes the screen scale.
+    const value = Math.fround(zoomFactor > 1 ? devicePx + 0.5 : devicePx)
+    return Math.trunc(Math.fround(value / zoomFactor) + 0.01)
   }
-  return { width: toGuestPx(hostBoxDevicePx.width), height: toGuestPx(hostBoxDevicePx.height) }
+  return { width: toGuestPx(hostBoxWindowDip.width), height: toGuestPx(hostBoxWindowDip.height) }
 }
 
 /** The guest's live zoom level, or null until it can be read. */
@@ -48,8 +51,8 @@ export function useBrowserPageViewportSizeFeedback(
       return
     }
     // Why reset per enable: ResizeObserver's first callback is the current size, not a resize.
-    // Why device px: the baseline must survive measurements taken before the guest zoom is readable.
-    let previousHostPx: BrowserPageViewportSize | null = null
+    // Why host DIP: the baseline must survive measurements taken before the guest zoom is readable.
+    let previousHostDip: BrowserPageViewportSize | null = null
     const observer = new ResizeObserver((entries) => {
       const box = entries.at(-1)?.contentRect
       if (!box) {
@@ -58,14 +61,14 @@ export function useBrowserPageViewportSizeFeedback(
       // Why: a parked page (workspace switch) measures 0×0 while still active; a running flash
       // would come back with a stale size, and the next size is only a baseline.
       if (box.width === 0 || box.height === 0) {
-        previousHostPx = null
+        previousHostDip = null
         hideBrowserFeedback()
         return
       }
-      const devicePixelRatio = window.devicePixelRatio
-      const hostPx = { width: box.width * devicePixelRatio, height: box.height * devicePixelRatio }
-      const previous = previousHostPx
-      previousHostPx = hostPx
+      const uiZoomFactor = getUIZoomFactor()
+      const hostDip = { width: box.width * uiZoomFactor, height: box.height * uiZoomFactor }
+      const previous = previousHostDip
+      previousHostDip = hostDip
       // Why skip the flash but keep the baseline: a size computed at a guessed zoom is worse than
       // no size, yet the first resize after dom-ready must still be announced.
       const guestZoomLevel = readGuestZoomLevel(webviewRef.current)
@@ -73,10 +76,10 @@ export function useBrowserPageViewportSizeFeedback(
         return
       }
       // Why: the renderer's devicePixelRatio includes UI zoom; the guest's scale is the screen's.
-      const zoomFactor =
-        (devicePixelRatio / getUIZoomFactor()) * browserPageZoomLevelToFactor(guestZoomLevel)
-      const before = toBrowserPageGuestViewportSize(previous, zoomFactor)
-      const next = toBrowserPageGuestViewportSize(hostPx, zoomFactor)
+      const screenScale = window.devicePixelRatio / uiZoomFactor
+      const pageZoomFactor = browserPageZoomLevelToFactor(guestZoomLevel)
+      const before = toBrowserPageGuestViewportSize(previous, screenScale, pageZoomFactor)
+      const next = toBrowserPageGuestViewportSize(hostDip, screenScale, pageZoomFactor)
       if (before.width !== next.width || before.height !== next.height) {
         showBrowserViewportSizeFeedback(next)
       }
