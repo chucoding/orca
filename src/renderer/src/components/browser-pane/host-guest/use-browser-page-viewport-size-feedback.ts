@@ -33,10 +33,10 @@ function readGuestZoomLevel(webview: Electron.WebviewTag | null): number | null 
   }
 }
 
-/** Reports the guest viewport size whenever the active pane's page box is resized. */
+/** Reports the guest viewport size whenever the observed page box is resized. */
 export function useBrowserPageViewportSizeFeedback(
   content: HTMLDivElement | null,
-  isActive: boolean,
+  enabled: boolean,
   webviewRef: React.RefObject<Electron.WebviewTag | null>,
   {
     showBrowserViewportSizeFeedback,
@@ -47,10 +47,10 @@ export function useBrowserPageViewportSizeFeedback(
   }
 ): void {
   useEffect(() => {
-    if (!content || !isActive || typeof ResizeObserver === 'undefined') {
+    if (!content || !enabled || typeof ResizeObserver === 'undefined') {
       return
     }
-    // Why reset per activation: ResizeObserver's first callback is the current size, not a resize.
+    // Why reset per enable: ResizeObserver's first callback is the current size, not a resize.
     // Why host DIP: the baseline must survive measurements taken before the guest zoom is readable.
     let previousHostDip: BrowserPageViewportSize | null = null
     const observer = new ResizeObserver((entries) => {
@@ -83,8 +83,8 @@ export function useBrowserPageViewportSizeFeedback(
     observer.observe(content)
     return () => {
       observer.disconnect()
-      // Why: an inactive page is no longer measured, so a running flash would go stale.
+      // Why: a disabled page is no longer measured, so a running flash would go stale.
       hideBrowserFeedback()
     }
-  }, [content, isActive, webviewRef, showBrowserViewportSizeFeedback, hideBrowserFeedback])
+  }, [content, enabled, webviewRef, showBrowserViewportSizeFeedback, hideBrowserFeedback])
 }

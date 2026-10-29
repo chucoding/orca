@@ -30,7 +30,6 @@ import { useBrowserAddressBarEditSession } from './assemble-chrome/use-browser-a
 import { useBrowserPageFindShortcuts } from './assemble-chrome/use-browser-page-find-shortcuts'
 import { useWebviewGuestFocus } from './assemble-chrome/browser-page-guest-focus'
 import { RemoteRuntimeEgressIndicator } from './assemble-chrome/browser-egress-indicator'
-import { getBrowserPageZoomIndicatorState } from './host-guest/browser-page-zoom'
 import { useBrowserPageWebviewShortcuts } from './host-guest/use-browser-page-webview-shortcuts'
 import { useBrowserPageZoomFeedback } from './host-guest/use-browser-page-zoom-feedback'
 import { isPageDocumentNavigationStart } from './host-guest/browser-page-webview-navigation-handlers'
@@ -281,9 +280,6 @@ export function ClientHostedBrowserPagePane({
   ])
 
   const showFailureOverlay = !attachmentError && Boolean(browserTab.loadError)
-  const browserZoomIndicatorState = getBrowserPageZoomIndicatorState({
-    feedbackVisible: zoom.browserZoomFeedbackVisible
-  })
 
   const markup = useClientHostedBrowserMarkup({
     webviewRef,
@@ -357,10 +353,7 @@ export function ClientHostedBrowserPagePane({
           style={devToolsPageFlex === null ? undefined : { flex: devToolsPageFlex }}
         >
           {markup.overlay}
-          <BrowserPageFeedbackBadge
-            state={browserZoomIndicatorState}
-            label={zoom.browserFeedbackLabel}
-          />
+          <BrowserPageFeedbackBadge ref={zoom.feedbackBadgeRef} />
           <BrowserFind
             isOpen={findOpen}
             onClose={() => setFindOpen(false)}
