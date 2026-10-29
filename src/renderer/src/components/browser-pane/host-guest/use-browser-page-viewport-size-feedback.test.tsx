@@ -30,7 +30,7 @@ it('matches what the guest reported under UI zoom, page zoom and a 2x screen', (
     width: 569,
     height: 689
   })
-  // 1x screen, 1.2 UI zoom: 410.83 CSS px is 493 device px; Blink adds 1 before dividing when zoomed in.
+  // 1x screen, 1.2 UI zoom: 410.83 CSS px is 493 device px.
   expect(
     toBrowserPageGuestViewportSize({ width: 410.8333 * 1.2, height: 555.677 * 1.2 }, 1.2)
   ).toEqual({ width: 411, height: 556 })
@@ -47,6 +47,11 @@ it('matches what the guest reported under UI zoom, page zoom and a 2x screen', (
   expect(toBrowserPageGuestViewportSize({ width: 3138, height: 2378 }, 2.5)).toEqual({
     width: 1255,
     height: 951
+  })
+  // Blink adds 0.5, not 1, before dividing when zoomed in.
+  expect(toBrowserPageGuestViewportSize({ width: 1000, height: 1610 }, 1.1)).toEqual({
+    width: 909,
+    height: 1464
   })
 })
 

@@ -9,14 +9,12 @@ export function toBrowserPageGuestViewportSize(
   hostBoxDevicePx: BrowserPageViewportSize,
   zoomFactor: number
 ): BrowserPageViewportSize {
-  // Why: mirrors Blink's AdjustForAbsoluteZoom::AdjustInt on the guest's device-pixel size, with the
-  // screen scale folded into the zoom; the epsilon absorbs float error like 1199.9999.
+  // Why: ports Blink's AdjustForAbsoluteZoom::AdjustInt (float math, +0.5 when zoomed in, then
+  // RoundForImpreciseConversion) on the guest's device-pixel size, with the screen scale in the zoom.
   const toGuestPx = (devicePx: number): number => {
     const wholePx = Math.round(devicePx)
-    if (zoomFactor === 1) {
-      return wholePx
-    }
-    return Math.floor((zoomFactor > 1 ? wholePx + 1 : wholePx) / zoomFactor + 1e-6)
+    const value = Math.fround(zoomFactor > 1 ? wholePx + 0.5 : wholePx)
+    return Math.trunc(Math.fround(value / Math.fround(zoomFactor)) + 0.01)
   }
   return { width: toGuestPx(hostBoxDevicePx.width), height: toGuestPx(hostBoxDevicePx.height) }
 }
