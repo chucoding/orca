@@ -152,10 +152,10 @@ export function BrowserPagePane({
   const slotViewport = useBrowserPageSlotViewport(workspaceId)
 
   const zoom = useBrowserPageZoomFeedback()
-  // Why not under a preset: it pins the page size, and mobile emulation's layout viewport can differ from the box.
+  // Why: presets and remote viewers override the guest's metrics, so the box no longer is its viewport.
   useBrowserPageViewportSizeFeedback(
     pageViewport?.content ?? null,
-    isActive && !browserTab.viewportPresetId,
+    isActive && !browserTab.viewportPresetId && !isMobileDriven && !isRemotelyViewed,
     webviewRef,
     zoom
   )
